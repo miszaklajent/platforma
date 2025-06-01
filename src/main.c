@@ -9,6 +9,8 @@
 #include "neopixel.h"
 #include "uart.h"
 #include "spi.h"
+#include "rs485.h"
+#define ESP_LOG_COLOR_DISABLED 1
 
 #define PIXEL_COUNT 1
 #define NEOPIXEL_PIN GPIO_NUM_48
@@ -98,54 +100,66 @@ void pixel_set(tNeopixelContext *neopixel, int pixel_num, int r, int g, int b){
 
 
 void app_main(void){
-    vTaskDelay(pdMS_TO_TICKS(500));
-    // gpio_set_direction(PIN_NUM_DRDY1, GPIO_MODE_INPUT);
-    // gpio_set_direction(PIN_NUM_CS1, GPIO_MODE_OUTPUT);
-    // gpio_set_level(PIN_NUM_CS1, 1);
+  vTaskDelay(pdMS_TO_TICKS(500));
+  // gpio_set_direction(PIN_NUM_DRDY1, GPIO_MODE_INPUT);
+  // gpio_set_direction(PIN_NUM_CS1, GPIO_MODE_OUTPUT);
+  // gpio_set_level(PIN_NUM_CS1, 1);
 
-    printf("UART initialized\n");
-    init_uart();
+  // printf("UART initialized\n");
+  // init_uart();
 
 
- 
+
+  
+
+  // xTaskCreatePinnedToCore(
+  //     uart_rx_task,         // Task function
+  //     "uart_rx_task",       // Task name
+  //     2048,                 // Stack size (bytes)
+  //     NULL,                 // Task parameters
+  //     5,                    // Task priority (higher numbers = higher priority)
+  //     &uart_rx_task_handle, // Task handle
+  //     0                     // Core ID (1 is the application core on ESP32)
+  // );
+
+
+  // xTaskCreatePinnedToCore(
+  //     spi_task,         // Task function
+  //     "spi_task",       // Task name
+  //     4096,                 // Stack size (bytes)
+  //     NULL,                 // Task parameters
+  //     5,                    // Task priority (higher numbers = higher priority)
+  //     &spi_task_handle, // Task handle
+  //     0                     // Core ID (1 is the application core on ESP32)
+  // );
+
+  RS485_Init();
+
+
+  // RS485_Send(UART_NUM_1,(uint8_t*)"{gpio:1}",9);s
+  
+
+  char data[16];
+  snprintf(data, sizeof(data), "liczba %d\n", 20); // Convert counter to string
+  RS485_Send_data(data);
+
+
+
+
+
+
+  tNeopixelContext neopixel = neopixel_Init(PIXEL_COUNT, NEOPIXEL_PIN);
+  pixel_set(&neopixel, 0, 10, 10, 10);
     
 
-    xTaskCreatePinnedToCore(
-        uart_rx_task,         // Task function
-        "uart_rx_task",       // Task name
-        2048,                 // Stack size (bytes)
-        NULL,                 // Task parameters
-        5,                    // Task priority (higher numbers = higher priority)
-        &uart_rx_task_handle, // Task handle
-        0                     // Core ID (1 is the application core on ESP32)
-    );
 
-
-    xTaskCreatePinnedToCore(
-        spi_task,         // Task function
-        "spi_task",       // Task name
-        4096,                 // Stack size (bytes)
-        NULL,                 // Task parameters
-        5,                    // Task priority (higher numbers = higher priority)
-        &spi_task_handle, // Task handle
-        0                     // Core ID (1 is the application core on ESP32)
-    );
-
-
-
-
-    tNeopixelContext neopixel = neopixel_Init(PIXEL_COUNT, NEOPIXEL_PIN);
-    pixel_set(&neopixel, 0, 10, 10, 10);
-      
-
-
-    // for(;;){
-    //     ESP_LOGI(TAG, "spi0 connected:%d", check_ads(&ads0));
-    //     ESP_LOGI(TAG, "spi1 connected:%d", check_ads(&ads1));
-    //     ESP_LOGI(TAG, "spi2 connected:%d", check_ads(&ads2));
-    //     ESP_LOGI(TAG, "spi3 connected:%d", check_ads(&ads3));
-    //     ESP_LOGI(TAG, " ");
-    //     vTaskDelay(pdMS_TO_TICKS(500)); // Delay for 100 ms before next transaction
-    // }
+  // for(;;){
+  //     ESP_LOGI(TAG, "spi0 connected:%d", check_ads(&ads0));
+  //     ESP_LOGI(TAG, "spi1 connected:%d", check_ads(&ads1));
+  //     ESP_LOGI(TAG, "spi2 connected:%d", check_ads(&ads2));
+  //     ESP_LOGI(TAG, "spi3 connected:%d", check_ads(&ads3));
+  //     ESP_LOGI(TAG, " ");
+  //     vTaskDelay(pdMS_TO_TICKS(500)); // Delay for 100 ms before next transaction
+  // }
 
 }

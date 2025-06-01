@@ -6,7 +6,7 @@
 #define UART_NUM           UART_NUM_1
 #define TXD_PIN            7
 #define RXD_PIN            8
-#define UART_BAUD_RATE     9600
+#define UART_BAUD_RATE     115200
 #define BUF_SIZE           1024
 
 static const char *TAG = "UART";
@@ -34,6 +34,8 @@ void init_uart(void) {
 
 
 void uart_rx_task(void *pvParameters) {
+    init_uart();
+
     uint8_t* data = (uint8_t*) malloc(BUF_SIZE);
     
     if (data == NULL) {
