@@ -101,6 +101,7 @@ void pixel_set(tNeopixelContext *neopixel, int pixel_num, int r, int g, int b){
 
 void app_main(void){
   vTaskDelay(pdMS_TO_TICKS(500));
+
   // gpio_set_direction(PIN_NUM_DRDY1, GPIO_MODE_INPUT);
   // gpio_set_direction(PIN_NUM_CS1, GPIO_MODE_OUTPUT);
   // gpio_set_level(PIN_NUM_CS1, 1);
@@ -123,15 +124,15 @@ void app_main(void){
   // );
 
 
-  // xTaskCreatePinnedToCore(
-  //     spi_task,         // Task function
-  //     "spi_task",       // Task name
-  //     4096,                 // Stack size (bytes)
-  //     NULL,                 // Task parameters
-  //     5,                    // Task priority (higher numbers = higher priority)
-  //     &spi_task_handle, // Task handle
-  //     0                     // Core ID (1 is the application core on ESP32)
-  // );
+  xTaskCreatePinnedToCore(
+      spi_task,         // Task function
+      "spi_task",       // Task name
+      4096,                 // Stack size (bytes)
+      NULL,                 // Task parameters
+      5,                    // Task priority (higher numbers = higher priority)
+      &spi_task_handle, // Task handle
+      0                     // Core ID (1 is the application core on ESP32)
+  );
 
   RS485_Init();
 

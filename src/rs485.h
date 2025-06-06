@@ -1,5 +1,6 @@
 #pragma once
 #include <stdio.h>
+#include <driver/uart.h>
 
 void RS485_Init(void);
 void RS485_Send_data(const char* data);

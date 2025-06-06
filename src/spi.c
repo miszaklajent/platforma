@@ -3,14 +3,16 @@
 #include <esp_err.h>
 
 // #ifdef CONFIG_IDF_TARGET_ESP32S3
-#define PIN_NUM_MISO  6   // Master In Slave Out
-#define PIN_NUM_MOSI  5   // Master Out Slave In
-#define PIN_NUM_CLK   13   // Clock
+#define PIN_NUM_MISO  12   // Master In Slave Out
+#define PIN_NUM_MOSI  11   // Master Out Slave In
+#define PIN_NUM_CLK   10   // Clock
 
-#define PIN_NUM_CS0    4
-#define PIN_NUM_CS1    3
-#define PIN_NUM_CS2    2
-#define PIN_NUM_CS3    1
+#define PIN_NUM_CS0    9
+#define PIN_NUM_CS1    8
+#define PIN_NUM_CS2    14
+#define PIN_NUM_CS3    2
+
+#define PIN_DATA_REDY 13 // GPIO pin for data ready signal
 
 
 static const char *TAG = "SPI_ADS_LINE";
@@ -210,7 +212,13 @@ void spi_task(void *pvParameters) {
         result = ads1_connected ? result + results1 : result;
         result = ads2_connected ? result + results2 : result;
         result = ads3_connected ? result + results3 : result;
+
+        int ads_connected = ads0_connected + ads1_connected + ads2_connected + ads3_connected;
+        if (ads_connected) {
         result = result / (ads0_connected + ads1_connected + ads2_connected + ads3_connected);
+        }else {
+            result = 0;
+        }
 
         printf("result: %f\n", result*0.001203152);
         if (ads0_connected) printf("Received data 0: %f\n", results0*0.001203152);
