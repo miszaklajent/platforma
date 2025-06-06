@@ -1,6 +1,7 @@
 #include "spi.h"
 #include <esp_log.h>
 #include <esp_err.h>
+#include "freertos/semphr.h"
 
 // #ifdef CONFIG_IDF_TARGET_ESP32S3
 #define PIN_NUM_MISO  12   // Master In Slave Out
@@ -13,6 +14,8 @@
 #define PIN_NUM_CS3    2
 
 #define PIN_DATA_REDY 13 // GPIO pin for data ready signal
+
+SemaphoreHandle_t AvgWeightMutex;
 
 
 static const char *TAG = "SPI_ADS_LINE";
@@ -30,6 +33,9 @@ static long conv_to_negative(unsigned long uval){
 }
 
 void init_spi(int miso, int mosi, int clk){
+
+    AvgWeightMutex = xSemaphoreCreateMutex();
+
     esp_err_t ret;
 
     spi_bus_config_t buscfg = {
@@ -169,7 +175,7 @@ unsigned long ads_get_cell_val(spi_device_handle_t *device_spi){
     return results;
 }
 
-
+float avrage_weight = 0;
 void spi_task(void *pvParameters) {
     printf("SPI task started\n");
     init_spi(PIN_NUM_MISO, PIN_NUM_MOSI, PIN_NUM_CLK);
@@ -200,7 +206,7 @@ void spi_task(void *pvParameters) {
     ESP_LOGI(TAG, "spi3 setup done:%d", ads_cell_setup(&ads3));
 
 
-    long result = 0;
+    float result = 0;
 
     for(;;){
         long results0 = conv_to_negative(ads_get_cell_val(&ads0));
@@ -213,11 +219,16 @@ void spi_task(void *pvParameters) {
         result = ads2_connected ? result + results2 : result;
         result = ads3_connected ? result + results3 : result;
 
-        int ads_connected = ads0_connected + ads1_connected + ads2_connected + ads3_connected;
-        if (ads_connected) {
+        // int ads_connected = ads0_connected + ads1_connected + ads2_connected + ads3_connected;
+        // if (ads_connected) {
         result = result / (ads0_connected + ads1_connected + ads2_connected + ads3_connected);
-        }else {
-            result = 0;
+        // }else {
+        //     result = 0;
+        // }
+
+        if (xSemaphoreTake(AvgWeightMutex, portMAX_DELAY)) {
+            avrage_weight = result * 0.001203152; // Convert to kg
+            xSemaphoreGive(AvgWeightMutex);
         }
 
         printf("result: %f\n", result*0.001203152);
@@ -226,6 +237,16 @@ void spi_task(void *pvParameters) {
         if (ads2_connected) printf("Received data 2: %f\n", results2*0.001203152);
         if (ads3_connected) printf("Received data 3: %f\n\n", results3*0.001203152);
         vTaskDelay(pdMS_TO_TICKS(100)); // Delay for 100 ms before next transaction
+        result = 0;
     }
 
+}
+
+float get_cell_avrage() {
+    if (xSemaphoreTake(AvgWeightMutex, portMAX_DELAY)) {
+        float avg_weight = avrage_weight;
+        xSemaphoreGive(AvgWeightMutex);
+        return avg_weight;
+    }
+    return 0.0f; // Return 0 if mutex cannot be taken
 }

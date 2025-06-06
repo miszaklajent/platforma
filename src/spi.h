@@ -1,6 +1,8 @@
 #pragma once
 #include "driver/spi_master.h"
 
+extern SemaphoreHandle_t AvgWeightMutex;
+
 void init_spi(int miso, int mosi, int clk);
 
 int spi_device_setup(spi_device_handle_t device_spi, int CS_pin);
@@ -12,3 +14,5 @@ int ads_cell_setup(spi_device_handle_t *device_spi);void ads_reset(spi_device_ha
 unsigned long ads_get_cell_val(spi_device_handle_t *device_spi);
 
 void spi_task(void *pvParameters);
+
+float get_cell_avrage();

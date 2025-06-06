@@ -6,6 +6,7 @@
 #include <string.h>
 #include <esp_log.h>
 #include "rs485.h"
+#include "spi.h"
 
 #define UART_NUM           UART_NUM_1
 #define TXD_PIN            39
@@ -100,18 +101,19 @@ void stats(void *pvParameters) {
     statsRunning = true;
     int lastTimer = 0;
     while(statsRunning) {
+        
         int timeDelay = 1000; //[ms]
 
         if(esp_timer_get_time()/1000-lastTimer > timeDelay) {
+            ESP_LOGI(TAGTX, "disp statistics...");
             lastTimer = esp_timer_get_time()/1000;
             char data[64];
-            snprintf(data, sizeof(data), "Stats: %d\n", rand() % 100);
+            snprintf(data, sizeof(data), "Weight: %.2f\n", get_cell_avrage());
             RS485_Send_data(data);
         } else {
             vTaskDelay(1 / portTICK_PERIOD_MS);
             continue;
         }
-        ESP_LOGI(TAGTX, "disp statistics...");
         
 
 
