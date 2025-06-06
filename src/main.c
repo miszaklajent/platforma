@@ -9,7 +9,8 @@
 #include "neopixel.h"
 #include "uart.h"
 #include "spi.h"
-#include "rs485.h"
+#include "rs485CLI.h"
+#include "rs485DATA.h"
 #define ESP_LOG_COLOR_DISABLED 1
 
 #define PIXEL_COUNT 1
@@ -134,15 +135,16 @@ void app_main(void){
       0                     // Core ID (1 is the application core on ESP32)
   );
 
-  RS485_Init();
+  RS485_CLI_Init();
+  RS485_DATA_Init();
 
 
   // RS485_Send(UART_NUM_1,(uint8_t*)"{gpio:1}",9);s
   
 
-  char data[16];
-  snprintf(data, sizeof(data), "liczba %d\n", 20); // Convert counter to string
-  RS485_Send_data(data);
+  // char data[16];
+  // snprintf(data, sizeof(data), "liczba %d\n", 20); // Convert counter to string
+  // RS485_Send_data(data);
 
 
 

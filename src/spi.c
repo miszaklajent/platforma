@@ -3,17 +3,17 @@
 #include <esp_err.h>
 #include "freertos/semphr.h"
 
-// #ifdef CONFIG_IDF_TARGET_ESP32S3
-#define PIN_NUM_MISO  12   // Master In Slave Out
-#define PIN_NUM_MOSI  11   // Master Out Slave In
-#define PIN_NUM_CLK   10   // Clock
+
+#define PIN_NUM_MISO  12 
+#define PIN_NUM_MOSI  11 
+#define PIN_NUM_CLK   10 
 
 #define PIN_NUM_CS0    9
 #define PIN_NUM_CS1    8
 #define PIN_NUM_CS2    14
 #define PIN_NUM_CS3    2
 
-#define PIN_DATA_REDY 13 // GPIO pin for data ready signal
+#define PIN_DATA_REDY 1
 
 SemaphoreHandle_t AvgWeightMutex;
 
