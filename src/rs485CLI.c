@@ -15,35 +15,17 @@
 #define UART_BAUD_RATE     115200
 #define BUF_SIZE           1024
 
-static const char* TAGRX = "RS485_RX";
-static const char* TAGTX = "RS485_TX";
+static const char* TAGRX = "CLI_RS485_RX";
+static const char* TAGTX = "CLI_RS485_TX";
 
 
-QueueHandle_t CLIuart_event_queue;
+QueueHandle_t CLI_uart_event_queue;
 
-void CLIRS485_SetTX(void);
-void CLIRS485_SetRX(void);
-void CLIRS485_rx_task(void *pvParameters);
+void CLI_RS485_rx_task(void *pvParameters);
+void CLI_RS485_SetTX(){ gpio_set_level(CONV_PIN,1); }
+void CLI_RS485_SetRX(){ gpio_set_level(CONV_PIN,0); }
 
-
-void CLIRS485_Send(uart_port_t uart_port,uint8_t* buf,uint16_t size)
-{
-    CLIRS485_SetTX();
-    uart_write_bytes(uart_port,buf,size);
-    uart_wait_tx_done(uart_port,portMAX_DELAY);
-    CLIRS485_SetRX();
-}
-
-void CLIRS485_Send_data(const char* data) {
-    CLIRS485_SetTX();
-    uart_write_bytes(UART_NUM, data, strlen(data));
-    uart_wait_tx_done(UART_NUM,portMAX_DELAY);
-    CLIRS485_SetRX();
-    ESP_LOGI(TAGTX, "Sent: %s", data);
-}
-
-void CLIuart_init(void)
-{
+void CLI_uart_init(void){
     uart_config_t uart_config = {
         .baud_rate = UART_BAUD_RATE,
         .data_bits = UART_DATA_8_BITS,
@@ -52,30 +34,30 @@ void CLIuart_init(void)
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
         .source_clk = UART_SCLK_DEFAULT
         };
-    uart_param_config(UART_NUM_1, &uart_config);
+    uart_param_config(UART_NUM, &uart_config);
     // uart_set_pin(UART_NUM_1,5,4,UART_PIN_NO_CHANGE,UART_PIN_NO_CHANGE);
     uart_set_pin(UART_NUM, TXD_PIN, RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     
-    uart_driver_install(UART_NUM_1, BUF_SIZE * 2, BUF_SIZE * 2, 30, &CLIuart_event_queue, 0);
-    
+    uart_driver_install(UART_NUM, BUF_SIZE * 2, BUF_SIZE * 2, 30, &CLI_uart_event_queue, 0);
 }
-void RS485_CLI_Init(void)
+
+void CLI_RS485_Init(void)
 {
-    CLIuart_init();
+    CLI_uart_init();
     gpio_reset_pin(CONV_PIN);
     gpio_set_direction(CONV_PIN,GPIO_MODE_OUTPUT);
     
-    xTaskCreate(CLIRS485_rx_task, "RS485_rx_task", 2048 * 4, NULL, 5, NULL);
+    xTaskCreate(CLI_RS485_rx_task, "CLI_RS485_rx_task", 2048 * 4, NULL, 5, NULL);
+}
 
+void CLI_RS485_Send_data(const char* data) {
+    CLI_RS485_SetTX();
+    uart_write_bytes(UART_NUM, data, strlen(data));
+    uart_wait_tx_done(UART_NUM,portMAX_DELAY);
+    CLI_RS485_SetRX();
+    ESP_LOGI(TAGTX, "Sent: %s", data);
 }
-void CLIRS485_SetTX()
-{
-    gpio_set_level(CONV_PIN,1);
-}
-void CLIRS485_SetRX()
-{
-    gpio_set_level(CONV_PIN,0);
-}
+
 
 void ehoHelp(void) {
     char data[512];
@@ -87,13 +69,13 @@ void ehoHelp(void) {
     "get force - prints current force put on platform \n"
     "get weight - prints current weight put on platform \n"
     "stats - display current stats in an interval\n");
-    CLIRS485_Send_data(data);
+    CLI_RS485_Send_data(data);
 }
 
 bool statsRunning = false;
 void stats(void *pvParameters) {
     ESP_LOGI(TAGTX, "Stats task started");
-    CLIRS485_Send_data("Stats running! Send any key to exit...\n");
+    CLI_RS485_Send_data("Stats running! Send any key to exit...\n");
 
     statsRunning = true;
     int lastTimer = 0;
@@ -106,7 +88,7 @@ void stats(void *pvParameters) {
             lastTimer = esp_timer_get_time()/1000;
             char data[64];
             snprintf(data, sizeof(data), "Weight: %.2f\n", get_cell_avrage());
-            CLIRS485_Send_data(data);
+            CLI_RS485_Send_data(data);
         } else {
             vTaskDelay(1 / portTICK_PERIOD_MS);
             continue;
@@ -117,19 +99,15 @@ void stats(void *pvParameters) {
         // vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 
-    CLIRS485_Send_data("Stats exiting!\n");
+    CLI_RS485_Send_data("Stats exiting!\n");
     ESP_LOGI(TAGTX, "Stats task finished");
     vTaskDelete(NULL);
 
 }
 
-
-
-
 void process_data(uint8_t *data, int len) {
 ESP_LOGI(TAGRX, "Processing received data...");
 
-    // Convert to string for parsing
     char command[BUF_SIZE];
     snprintf(command, sizeof(command), "%s", (char *)data);
     printf("Command: %s\n", command);
@@ -148,7 +126,7 @@ ESP_LOGI(TAGRX, "Processing received data...");
         if (sscanf(command, "calib%d = %f", &calibPoint, &calibValue) == 2) {
             char data[64];
             snprintf(data, sizeof(data), "Calibration Point: %d, Value: %.2f", calibPoint, calibValue);
-            CLIRS485_Send_data(data);
+            CLI_RS485_Send_data(data);
             ESP_LOGI(TAGRX, "%s", data);
         } else {
             ESP_LOGW(TAGRX, "Invalid calibration format.");
@@ -181,9 +159,7 @@ ESP_LOGI(TAGRX, "Processing received data...");
 
 }
 
-
-
-void CLIRS485_rx_task(void *pvParameters) {
+void CLI_RS485_rx_task(void *pvParameters) {
 
     uint8_t* data = (uint8_t*) malloc(BUF_SIZE);
     
@@ -198,7 +174,7 @@ void CLIRS485_rx_task(void *pvParameters) {
     while (1) {
         int len = uart_read_bytes(UART_NUM, data, BUF_SIZE - 1, 20 / portTICK_PERIOD_MS);
         if (len > 0) {
-            data[len] = '\0'; // Null-terminate the received data
+            data[len] = '\0';
         
             ESP_LOGI(TAGRX, "Received data (%d bytes): %s", len, data);
 
