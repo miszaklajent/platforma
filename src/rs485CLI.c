@@ -70,7 +70,8 @@ void ehoHelp(void) {
     "get force - prints current force put on platform \n"
     "get weight - prints current weight put on platform \n"
     "stats - display current stats in an interval\n"
-    "calPoints\n");
+    "calPoints - display all cell calibration points\n"
+    "sync points - syncs calibration points with current cell values\n");
     CLI_RS485_Send_data(data);
 }
 
@@ -125,7 +126,7 @@ ESP_LOGI(TAGRX, "Processing received data...");
     } else if (strncmp(command, "calib", 5) == 0) {
         int calibPoint;
         float calibValue;
-        if (sscanf(command, "calib%d = %f", &calibPoint, &calibValue) == 2) {
+        if (sscanf(command, "\ncalib%d = %f\n", &calibPoint, &calibValue) == 2) {
 
 
             int rawCellValues[4];
@@ -140,7 +141,7 @@ ESP_LOGI(TAGRX, "Processing received data...");
             
 
             char data[64];
-            snprintf(data, sizeof(data), "Calibration Point: %d, Value: %.2f", calibPoint, calibValue);
+            snprintf(data, sizeof(data), "\nCalibration Point: %d, Value: %.2f\n", calibPoint, calibValue);
             CLI_RS485_Send_data(data);
             ESP_LOGI(TAGRX, "%s", data);
         } else {
@@ -170,6 +171,8 @@ ESP_LOGI(TAGRX, "Processing received data...");
         xTaskCreate(stats, "stats", 2048 * 4, NULL, 5, NULL);
     } else if (strncmp(command, "calPoints", 9) == 0) {
         test_struct();
+    } else if (strncmp(command, "sync points", 11) == 0) {
+        Cell_calibration_dataPoints_sync();
     } else {
         ESP_LOGW(TAGRX, "Unknown command: %s", command);
     }

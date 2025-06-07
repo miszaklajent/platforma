@@ -18,3 +18,5 @@ void spi_task(void *pvParameters);
 int get_raw_cell_val(int *CellNum);
 
 float get_cell_avrage();
+
+void Cell_calibration_dataPoints_sync();

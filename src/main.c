@@ -1,11 +1,7 @@
 #include <stdio.h>
-#include "esp_log.h"
-#include "esp_err.h"
-#include "driver/spi_master.h"
-#include "driver/gpio.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "driver/uart.h"
+#include <driver/gpio.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include "neopixel.h"
 #include "uart.h"
 #include "spi.h"
@@ -13,18 +9,11 @@
 #include "rs485DATA.h"
 #include "files.h"
 
-#define ESP_LOG_COLOR_DISABLED 1
 
 #define PIXEL_COUNT 1
 #define NEOPIXEL_PIN GPIO_NUM_48
 
 TaskHandle_t spi_task_handle = NULL;
-
-
-
-static const char *TAG = "SPI_ADS_LINE";
-
-
 
 
 ////////////////////////////////////////////
@@ -76,13 +65,13 @@ void app_main(void){
 
 
   xTaskCreatePinnedToCore(
-    spi_task,         // Task function
-    "spi_task",       // Task name
+    spi_task,             // Task function
+    "spi_task",           // Task name
     4096,                 // Stack size (bytes)
     NULL,                 // Task parameters
     5,                    // Task priority (higher numbers = higher priority)
-    &spi_task_handle, // Task handle
-    0                     // Core ID (1 is the application core on ESP32)
+    &spi_task_handle,     // Task handle
+    0                     // Core ID
   );
 
   CLI_RS485_Init();

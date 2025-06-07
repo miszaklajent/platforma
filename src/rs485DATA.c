@@ -64,7 +64,7 @@ void DATA_rs485_tx_data(void *pvParameters) {
     while (1) {
         snprintf((char*)tx_buffer, sizeof(tx_buffer), "Hello from RS485!\n");
         
-        DATA_RS485_Send_data((const char*)tx_buffer);
+        // DATA_RS485_Send_data((const char*)tx_buffer);
         
         vTaskDelay(pdMS_TO_TICKS(1000));
     }

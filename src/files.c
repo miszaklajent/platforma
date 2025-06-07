@@ -10,7 +10,7 @@
 
 static const char *TAG = "filesystem";
 
-// struct CalibData data;
+// struct CalibData calData;
 
 void esptool_path(){
     FILE *f = fopen("/storage/file.json", "r");
@@ -81,7 +81,7 @@ CalibData *get_calib_data() {
         return NULL;
     }
 
-    CalibData *data = malloc(sizeof(CalibData));
+    CalibData *calData = malloc(sizeof(CalibData));
 
     for (int i = 0; i < 4; i++) {
         char key[10];
@@ -89,21 +89,21 @@ CalibData *get_calib_data() {
         cJSON *cell = cJSON_GetObjectItem(json, key);
 
         if (cell) {
-            data->cellX0[i] = cJSON_GetObjectItem(cell, "x0")->valueint;
-            data->cellX1[i] = cJSON_GetObjectItem(cell, "x1")->valueint;
-            data->cellY0[i] = (float)cJSON_GetObjectItem(cell, "y0")->valuedouble;
-            data->cellY1[i] = (float)cJSON_GetObjectItem(cell, "y1")->valuedouble;
+            calData->cellX0[i] = cJSON_GetObjectItem(cell, "x0")->valueint;
+            calData->cellX1[i] = cJSON_GetObjectItem(cell, "x1")->valueint;
+            calData->cellY0[i] = (float)cJSON_GetObjectItem(cell, "y0")->valuedouble;
+            calData->cellY1[i] = (float)cJSON_GetObjectItem(cell, "y1")->valuedouble;
         }
     }
 
     cJSON_Delete(json);
     free(json_content);
-    return data;
+    return calData;
 }
 
 // void Set_calib_point(int x, float y, int pointNum, int cellNum) {
-//     CalibData *data = get_calib_data();
-//     if (data == NULL) {
+//     CalibData *calData = get_calib_data();
+//     if (calData == NULL) {
 //         printf("Error: Data structure is NULL\n");
 //         return;
 //     }
@@ -114,17 +114,17 @@ CalibData *get_calib_data() {
 //     }
 
 //     if (pointNum == 0) {
-//         data->cellX0[cellNum] = x;
-//         data->cellY0[cellNum] = y;
+//         calData->cellX0[cellNum] = x;
+//         calData->cellY0[cellNum] = y;
 //     } else {
-//         data->cellX1[cellNum] = x;
-//         data->cellY1[cellNum] = y;
+//         calData->cellX1[cellNum] = x;
+//         calData->cellY1[cellNum] = y;
 //     }
 // }
 
 void Set_calib_point(int x, float y, int pointNum, int cellNum) {
-    CalibData *data = get_calib_data();
-    if (data == NULL) {
+    CalibData *calData = get_calib_data();
+    if (calData == NULL) {
         printf("Error: Data structure is NULL\n");
         return;
     }
@@ -135,20 +135,20 @@ void Set_calib_point(int x, float y, int pointNum, int cellNum) {
     }
 
     if (pointNum == 0) {
-        data->cellX0[cellNum] = x;
-        data->cellY0[cellNum] = y;
+        calData->cellX0[cellNum] = x;
+        calData->cellY0[cellNum] = y;
     } else {
-        data->cellX1[cellNum] = x;
-        data->cellY1[cellNum] = y;
+        calData->cellX1[cellNum] = x;
+        calData->cellY1[cellNum] = y;
     }
 
     cJSON *json = cJSON_CreateObject();
     for (int i = 0; i < 4; i++) {
         cJSON *cell = cJSON_CreateObject();
-        cJSON_AddNumberToObject(cell, "x0", data->cellX0[i]);
-        cJSON_AddNumberToObject(cell, "y0", data->cellY0[i]);
-        cJSON_AddNumberToObject(cell, "x1", data->cellX1[i]);
-        cJSON_AddNumberToObject(cell, "y1", data->cellY1[i]);
+        cJSON_AddNumberToObject(cell, "x0", calData->cellX0[i]);
+        cJSON_AddNumberToObject(cell, "y0", calData->cellY0[i]);
+        cJSON_AddNumberToObject(cell, "x1", calData->cellX1[i]);
+        cJSON_AddNumberToObject(cell, "y1", calData->cellY1[i]);
 
         char key[10];
         sprintf(key, "cell%d", i);
@@ -170,22 +170,22 @@ void Set_calib_point(int x, float y, int pointNum, int cellNum) {
     cJSON_Delete(json);
     free(json_string);
 
-    // printf("Calibration data updated and saved to %s\n", filename);
+    // printf("Calibration calData updated and saved to %s\n", filename);
 }
 
 
 
 void test_struct() {
-    CalibData *data = get_calib_data();
-    if (data == NULL) {
-        printf("No data available\n");
+    CalibData *calData = get_calib_data();
+    if (calData == NULL) {
+        printf("No calData available\n");
         return;
     }
 
     for (int i = 0; i < 4; i++) {
         char buffer[150];
         snprintf(buffer, sizeof(buffer), "\nCell %d: X0: %d, X1: %d, Y0: %.2f, Y1: %.2f", 
-                 i, data->cellX0[i], data->cellX1[i], data->cellY0[i], data->cellY1[i]);
+                 i, calData->cellX0[i], calData->cellX1[i], calData->cellY0[i], calData->cellY1[i]);
         printf("%s", buffer);
         CLI_RS485_Send_data(buffer);
 
@@ -209,7 +209,7 @@ void read_data(){
 
     fclose(f);
 
-        // parse the JSON data
+        // parse the JSON calData
     cJSON *json = cJSON_Parse(buffer);
     if (json == NULL) {
         const char *error_ptr = cJSON_GetErrorPtr();
@@ -221,7 +221,7 @@ void read_data(){
     }
 
 
-    // access the JSON data
+    // access the JSON calData
     cJSON *val = cJSON_GetObjectItemCaseSensitive(json, "val");
     printf("val: %d\n", val->valueint);
     cJSON *val2 = cJSON_GetObjectItemCaseSensitive(json, "val2");
