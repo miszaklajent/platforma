@@ -7,6 +7,7 @@
 #include <esp_log.h>
 #include "rs485CLI.h"
 #include "spi.h"
+#include "files.h"
 
 #define UART_NUM           UART_NUM_1
 #define TXD_PIN            39
@@ -68,7 +69,8 @@ void ehoHelp(void) {
     "gravity = X (where X is gravity acceleration in your area in m/s^2) \n"
     "get force - prints current force put on platform \n"
     "get weight - prints current weight put on platform \n"
-    "stats - display current stats in an interval\n");
+    "stats - display current stats in an interval\n"
+    "calPoints\n");
     CLI_RS485_Send_data(data);
 }
 
@@ -124,6 +126,19 @@ ESP_LOGI(TAGRX, "Processing received data...");
         int calibPoint;
         float calibValue;
         if (sscanf(command, "calib%d = %f", &calibPoint, &calibValue) == 2) {
+
+
+            int rawCellValues[4];
+            if (get_raw_cell_val(rawCellValues) != 0) {
+                ESP_LOGE(TAGRX, "Failed to get raw cell values.");
+                return;
+            }
+            for(int i = 0; i < 4; i++) {
+                Set_calib_point(rawCellValues[i], calibValue, calibPoint, i);
+                // vTaskDelay(1 / portTICK_PERIOD_MS);
+            }
+            
+
             char data[64];
             snprintf(data, sizeof(data), "Calibration Point: %d, Value: %.2f", calibPoint, calibValue);
             CLI_RS485_Send_data(data);
@@ -153,6 +168,8 @@ ESP_LOGI(TAGRX, "Processing received data...");
 
     } else if (strncmp(command, "stats", 5) == 0) {
         xTaskCreate(stats, "stats", 2048 * 4, NULL, 5, NULL);
+    } else if (strncmp(command, "calPoints", 9) == 0) {
+        test_struct();
     } else {
         ESP_LOGW(TAGRX, "Unknown command: %s", command);
     }

@@ -6,6 +6,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include "files.h"
+#include "rs485CLI.h"
 
 static const char *TAG = "filesystem";
 
@@ -182,8 +183,12 @@ void test_struct() {
     }
 
     for (int i = 0; i < 4; i++) {
-        printf("Cell %d: X0: %d, X1: %d, Y0: %.2f, Y1: %.2f\n", 
-               i, data->cellX0[i], data->cellX1[i], data->cellY0[i], data->cellY1[i]);
+        char buffer[150];
+        snprintf(buffer, sizeof(buffer), "\nCell %d: X0: %d, X1: %d, Y0: %.2f, Y1: %.2f", 
+                 i, data->cellX0[i], data->cellX1[i], data->cellY0[i], data->cellY1[i]);
+        printf("%s", buffer);
+        CLI_RS485_Send_data(buffer);
+
     }
 }
 

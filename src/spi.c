@@ -3,6 +3,10 @@
 #include <esp_err.h>
 #include <driver/gpio.h>
 #include <freertos/semphr.h>
+#include "files.h"
+
+// Declare the get_calib_data function if not already declared
+CalibData* get_calib_data();
 
 
 #define SPI_HOST       SPI2_HOST
@@ -19,6 +23,9 @@
 #define PIN_DATA_REDY 1
 
 SemaphoreHandle_t AvgWeightMutex;
+SemaphoreHandle_t rawValuesMutex;
+
+CalibData data;
 
 
 static const char *TAG = "SPI_ADS_LINE";
@@ -34,8 +41,11 @@ static long conv_to_negative(unsigned long uval){
 }
 
 void init_spi(int miso, int mosi, int clk){
+    CalibData *data = get_calib_data();
+
 
     AvgWeightMutex = xSemaphoreCreateMutex();
+    rawValuesMutex = xSemaphoreCreateMutex();
 
     esp_err_t ret;
 
@@ -176,6 +186,13 @@ float Lineary_transformed_cell(int x0, int x1, int y0, int y1, int x) {
     return y0 + (float)(y1 - y0) * (x - x0) / (x1 - x0);
 }
 
+
+float result = 0;
+// int results0 = 0;
+// int results1 = 0;
+// int results2 = 0;
+// int results3 = 0;
+int results[4] = {0, 0, 0, 0};
 float avrage_weight = 0;
 void spi_task(void *pvParameters) {
     printf("SPI task started\n");
@@ -208,23 +225,22 @@ void spi_task(void *pvParameters) {
     ESP_LOGI(TAG, "spi2 setup done:%d", ads_cell_setup(&ads2));
     ESP_LOGI(TAG, "spi3 setup done:%d", ads_cell_setup(&ads3));
 
-    float result = 0;
-    long results0 = 0;
-    long results1 = 0;
-    long results2 = 0;
-    long results3 = 0;
+
 
     for(;;){
         if (gpio_get_level(PIN_DATA_REDY) == 0) {
-            long results0 = conv_to_negative(ads_get_cell_val(&ads0));
-            long results1 = conv_to_negative(ads_get_cell_val(&ads1));
-            long results2 = conv_to_negative(ads_get_cell_val(&ads2));
-            long results3 = conv_to_negative(ads_get_cell_val(&ads3));
+            
 
-            result = ads0_connected ? result + results0 : result;
-            result = ads1_connected ? result + results1 : result;
-            result = ads2_connected ? result + results2 : result;
-            result = ads3_connected ? result + results3 : result;
+            results[0] = conv_to_negative(ads_get_cell_val(&ads0));
+            results[1] = conv_to_negative(ads_get_cell_val(&ads1));
+            results[2] = conv_to_negative(ads_get_cell_val(&ads2));
+            results[3] = conv_to_negative(ads_get_cell_val(&ads3));
+
+
+            result = ads0_connected ? result + results[0] : result;
+            result = ads1_connected ? result + results[1] : result;
+            result = ads2_connected ? result + results[2] : result;
+            result = ads3_connected ? result + results[3] : result;
             
         } else {
             
@@ -248,14 +264,22 @@ void spi_task(void *pvParameters) {
         }
 
         printf("result: %f\n", result*0.001203152);
-        if (ads0_connected) printf("Received data 0: %f\n", results0*0.001203152);
-        if (ads1_connected) printf("Received data 1: %f\n", results1*0.001203152);
-        if (ads2_connected) printf("Received data 2: %f\n", results2*0.001203152);
-        if (ads3_connected) printf("Received data 3: %f\n\n", results3*0.001203152);
-        vTaskDelay(pdMS_TO_TICKS(100)); // Delay for 100 ms before next transaction
+        if (ads0_connected) printf("Received data 0: %f\n", results[0]*0.001203152);
+        if (ads1_connected) printf("Received data 1: %f\n", results[1]*0.001203152);
+        if (ads2_connected) printf("Received data 2: %f\n", results[2]*0.001203152);
+        if (ads3_connected) printf("Received data 3: %f\n\n", results[3]*0.001203152);
+        vTaskDelay(pdMS_TO_TICKS(100));
         result = 0;
     }
 
+}
+
+int get_raw_cell_val(int *CellNum){
+
+    for (int i = 0; i < 4; i++) {  // potential race condition!!!
+        CellNum[i] = results[i];
+    }
+    return 0;
 }
 
 float get_cell_avrage() {
