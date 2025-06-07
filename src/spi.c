@@ -1,8 +1,11 @@
 #include "spi.h"
 #include <esp_log.h>
 #include <esp_err.h>
-#include "freertos/semphr.h"
+#include <driver/gpio.h>
+#include <freertos/semphr.h>
 
+
+#define SPI_HOST       SPI2_HOST
 
 #define PIN_NUM_MISO  12 
 #define PIN_NUM_MOSI  11 
@@ -23,10 +26,8 @@ static const char *TAG = "SPI_ADS_LINE";
 static long conv_to_negative(unsigned long uval){
     long sval;
     if (uval & (1 << 23)) {
-        // Sign bit is set, value is negative
         sval = uval - (1 << 24);
     } else {
-        // Positive value
         sval = uval;
     }
     return sval;
@@ -39,16 +40,15 @@ void init_spi(int miso, int mosi, int clk){
     esp_err_t ret;
 
     spi_bus_config_t buscfg = {
-        .miso_io_num = miso,  // MISO
-        .mosi_io_num = mosi,  // MOSI
-        .sclk_io_num = clk,   // Clock
-        .quadwp_io_num = -1,          // Not used
-        .quadhd_io_num = -1,          // Not used
-        .max_transfer_sz = 4096,      // Maximum transfer size in bytes
+        .miso_io_num = miso,
+        .mosi_io_num = mosi,
+        .sclk_io_num = clk, 
+        .quadwp_io_num = -1,        
+        .quadhd_io_num = -1,        
+        .max_transfer_sz = 4096,    
     };
 
-    // For ESP32-C3, we typically use SPI2_HOST.
-    ret = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
+    ret = spi_bus_initialize(SPI_HOST, &buscfg, SPI_DMA_CH_AUTO);
     ESP_ERROR_CHECK(ret);
     ESP_LOGI(TAG, "SPI bus initialized");
 }
@@ -56,12 +56,12 @@ void init_spi(int miso, int mosi, int clk){
 int spi_device_setup(spi_device_handle_t device_spi, int CS_pin){
     esp_err_t ret;
     spi_device_interface_config_t config = {
-        .clock_speed_hz = 10 * 1000 * 1000, // 10 MHz clock
-        .mode = 0,                          // SPI mode 0
-        .spics_io_num = CS_pin,         // Chip select pin
-        .queue_size = 3,                    // Transaction queue size
+        .clock_speed_hz = 10 * 1000 * 1000,
+        .mode = 0,                       
+        .spics_io_num = CS_pin,      
+        .queue_size = 3,                 
     };
-    ret = spi_bus_add_device(SPI2_HOST, &config, device_spi);
+    ret = spi_bus_add_device(SPI_HOST, &config, device_spi);
     ESP_ERROR_CHECK(ret);
     ESP_LOGI(TAG, "SPI device at CS_pin: %d, added to bus", CS_pin);
     return 1;
@@ -134,7 +134,6 @@ int ads_cell_setup(spi_device_handle_t *device_spi){
     // ESP_LOGI(TAG, "ADS is connected");
     return 1;
 
-
     // ESP_LOGI(TAG, "Setup transaction completed");
 }
 
@@ -166,18 +165,22 @@ unsigned long ads_get_cell_val(spi_device_handle_t *device_spi){
     ret = spi_device_transmit(*device_spi, &trans_request);
     ESP_ERROR_CHECK(ret);
 
-    // The first byte in request_rx corresponds to the transmitted command byte.
-    // The next three bytes are the actual response data.
-    // ESP_LOGI(TAG, "Data request transmitted; received bytes: 0x%02X, 0x%02X, 0x%02X",
-    //         request_rx[1], request_rx[2], request_rx[3]);
-
     unsigned long results = (request_rx[1] << 16) | (request_rx[2] << 8) | request_rx[3];
     return results;
+}
+
+
+
+float Lineary_transformed_cell(int x0, int x1, int y0, int y1, int x) {
+    // Linear transformation formula: y = y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+    return y0 + (float)(y1 - y0) * (x - x0) / (x1 - x0);
 }
 
 float avrage_weight = 0;
 void spi_task(void *pvParameters) {
     printf("SPI task started\n");
+    gpio_set_direction(PIN_DATA_REDY, GPIO_MODE_INPUT);
+
     init_spi(PIN_NUM_MISO, PIN_NUM_MOSI, PIN_NUM_CLK);
 
     spi_device_handle_t ads0;
@@ -205,26 +208,39 @@ void spi_task(void *pvParameters) {
     ESP_LOGI(TAG, "spi2 setup done:%d", ads_cell_setup(&ads2));
     ESP_LOGI(TAG, "spi3 setup done:%d", ads_cell_setup(&ads3));
 
-
     float result = 0;
+    long results0 = 0;
+    long results1 = 0;
+    long results2 = 0;
+    long results3 = 0;
 
     for(;;){
-        long results0 = conv_to_negative(ads_get_cell_val(&ads0));
-        long results1 = conv_to_negative(ads_get_cell_val(&ads1));
-        long results2 = conv_to_negative(ads_get_cell_val(&ads2));
-        long results3 = conv_to_negative(ads_get_cell_val(&ads3));
+        if (gpio_get_level(PIN_DATA_REDY) == 0) {
+            long results0 = conv_to_negative(ads_get_cell_val(&ads0));
+            long results1 = conv_to_negative(ads_get_cell_val(&ads1));
+            long results2 = conv_to_negative(ads_get_cell_val(&ads2));
+            long results3 = conv_to_negative(ads_get_cell_val(&ads3));
 
-        result = ads0_connected ? result + results0 : result;
-        result = ads1_connected ? result + results1 : result;
-        result = ads2_connected ? result + results2 : result;
-        result = ads3_connected ? result + results3 : result;
+            result = ads0_connected ? result + results0 : result;
+            result = ads1_connected ? result + results1 : result;
+            result = ads2_connected ? result + results2 : result;
+            result = ads3_connected ? result + results3 : result;
+            
+        } else {
+            
+            vTaskDelay(pdMS_TO_TICKS(100));
+            continue;
+        }
 
-        // int ads_connected = ads0_connected + ads1_connected + ads2_connected + ads3_connected;
-        // if (ads_connected) {
-        result = result / (ads0_connected + ads1_connected + ads2_connected + ads3_connected);
-        // }else {
-        //     result = 0;
-        // }
+
+
+
+        int ads_connected = ads0_connected + ads1_connected + ads2_connected + ads3_connected;
+        if (ads_connected) {
+            result = result / (ads0_connected + ads1_connected + ads2_connected + ads3_connected);
+        }else {
+            result = 0;
+        }
 
         if (xSemaphoreTake(AvgWeightMutex, portMAX_DELAY)) {
             avrage_weight = result * 0.001203152; // Convert to kg
@@ -248,5 +264,5 @@ float get_cell_avrage() {
         xSemaphoreGive(AvgWeightMutex);
         return avg_weight;
     }
-    return 0.0f; // Return 0 if mutex cannot be taken
+    return 0.0f;
 }

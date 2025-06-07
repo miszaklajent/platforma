@@ -11,6 +11,8 @@
 #include "spi.h"
 #include "rs485CLI.h"
 #include "rs485DATA.h"
+#include "files.h"
+
 #define ESP_LOG_COLOR_DISABLED 1
 
 #define PIXEL_COUNT 1
@@ -70,15 +72,23 @@ void app_main(void){
   // gpio_set_level(PIN_NUM_CS1, 1);
 
 
-  xTaskCreatePinnedToCore(
-    spi_task,         // Task function
-    "spi_task",       // Task name
-    4096,                 // Stack size (bytes)
-    NULL,                 // Task parameters
-    5,                    // Task priority (higher numbers = higher priority)
-    &spi_task_handle, // Task handle
-    0                     // Core ID (1 is the application core on ESP32)
-  );
+  filesystem_config();
+  esptool_path();
+  test_struct(); 
+
+  Set_calib_point(25, 50.5, 1, 2);
+
+  test_struct(); 
+
+  // xTaskCreatePinnedToCore(
+  //   spi_task,         // Task function
+  //   "spi_task",       // Task name
+  //   4096,                 // Stack size (bytes)
+  //   NULL,                 // Task parameters
+  //   5,                    // Task priority (higher numbers = higher priority)
+  //   &spi_task_handle, // Task handle
+  //   0                     // Core ID (1 is the application core on ESP32)
+  // );
 
   CLI_RS485_Init();
   DATA_RS485_Init();
