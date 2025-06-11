@@ -174,8 +174,8 @@ unsigned long ads_get_cell_val(spi_device_handle_t *device_spi){
     ret = spi_device_transmit(*device_spi, &trans_request);
     ESP_ERROR_CHECK(ret);
 
-    unsigned long results = (request_rx[1] << 16) | (request_rx[2] << 8) | request_rx[3];
-    return results;
+    unsigned long raw_values = (request_rx[1] << 16) | (request_rx[2] << 8) | request_rx[3];
+    return raw_values;
 }
 
 void Cell_calibration_dataPoints_sync() {
@@ -194,8 +194,10 @@ float result = 0;
 // int results1 = 0;
 // int results2 = 0;
 // int results3 = 0;
-int results[4] = {0, 0, 0, 0};
-float calculated_results[4] = {0, 0, 0, 0};
+int raw_values[4] = {0, 0, 0, 0};
+int raw_sum = 0;
+int raw_avrage = 0;
+float calculated_result = 0;
 float avrage_weight = 0;
 void spi_task(void *pvParameters) {
     Cell_calibration_dataPoints_sync();
@@ -234,71 +236,60 @@ void spi_task(void *pvParameters) {
 
     for(;;){
         if (gpio_get_level(PIN_DATA_REDY) == 0) {    
-            if (xSemaphoreTake(rawValuesMutex, portMAX_DELAY)) {
-                results[0] = conv_to_negative(ads_get_cell_val(&ads0));
-                results[1] = conv_to_negative(ads_get_cell_val(&ads1));
-                results[2] = conv_to_negative(ads_get_cell_val(&ads2));
-                results[3] = conv_to_negative(ads_get_cell_val(&ads3));
 
-                for (int i = 0; i < 4; i++) {
-                    if (i == 0 && !ads0_connected) continue;
-                    if (i == 1 && !ads1_connected) continue;
-                    if (i == 2 && !ads2_connected) continue;
-                    if (i == 3 && !ads3_connected) continue;
-                    calculated_results[i] = Linear_transformed_cell(calData.cellX0[i], calData.cellX1[i], calData.cellY0[i], calData.cellY1[i], results[i]);
-                }
-                xSemaphoreGive(rawValuesMutex);
+            raw_values[0] = conv_to_negative(ads_get_cell_val(&ads0));
+            raw_values[1] = conv_to_negative(ads_get_cell_val(&ads1));
+            raw_values[2] = conv_to_negative(ads_get_cell_val(&ads2));
+            raw_values[3] = conv_to_negative(ads_get_cell_val(&ads3));
+
+            for (int i = 0; i < 4; i++) {
+                if (i == 0 && !ads0_connected) continue;
+                if (i == 1 && !ads1_connected) continue;
+                if (i == 2 && !ads2_connected) continue;
+                if (i == 3 && !ads3_connected) continue;
+                // calculated_results[i] = Linear_transformed_cell(calData.cellX0[i], calData.cellX1[i], calData.cellY0[i], calData.cellY1[i], raw_values[i]);
+                raw_sum += raw_values[i];
             }
+
         } else {
             continue;
         }
-        // // printf("Data ready!\n");
-        // printf("data.cellX0[1] = %d, data.cellX1[1] = %d, data.cellY0[1] = %f, data.cellY1[1] = %f, results[1] = %d\n", 
-        //     calData.cellX0[1], calData.cellX1[1], calData.cellY0[1], calData.cellY1[1], results[1]);
-        
-        // calculated_results[1] = Linear_transformed_cell(calData.cellX0[1], calData.cellX1[1], calData.cellY0[1], calData.cellY1[1], results[1]);
-        // printf("Received data 1: %f\n", calculated_results[1]);
 
-
-        for (int i = 0; i < 4; i++) {
-            if (i == 0 && !ads0_connected) continue;
-            if (i == 1 && !ads1_connected) continue;
-            if (i == 2 && !ads2_connected) continue;
-            if (i == 3 && !ads3_connected) continue;
-            result += calculated_results[i];
-        }
         int ads_connected = ads0_connected + ads1_connected + ads2_connected + ads3_connected;
         if (ads_connected) {
-            result = result / (ads0_connected + ads1_connected + ads2_connected + ads3_connected);
+            raw_avrage = raw_sum / (ads0_connected + ads1_connected + ads2_connected + ads3_connected);
         }else {
-            result = 0;
+            raw_avrage = 0;
         }
-        printf("result: %f\n", result);
+        printf("raw_avrage: %d\n", raw_avrage);
+
+        calculated_result = Linear_transformed_cell(calData.cellX0, calData.cellX1, calData.cellY0, calData.cellY1, raw_avrage);
 
         if (xSemaphoreTake(AvgWeightMutex, portMAX_DELAY)) {
-            avrage_weight = result * 0.001203152; // Convert to kg
+            avrage_weight = calculated_result;
             xSemaphoreGive(AvgWeightMutex);
         }
 
-        if (ads0_connected) printf("Received data 0: %f\n", calculated_results[0]);
-        if (ads1_connected) printf("Received data 1: %f\n", calculated_results[1]);
-        if (ads2_connected) printf("Received data 2: %f\n", calculated_results[2]);
-        if (ads3_connected) printf("Received data 3: %f\n\n", calculated_results[3]);
+        printf("calculated_result: %.2f\n", calculated_result);
+
+        if (ads0_connected) printf("Received data 0: %d\n", raw_values[0]);
+        if (ads1_connected) printf("Received data 1: %d\n", raw_values[1]);
+        if (ads2_connected) printf("Received data 2: %d\n", raw_values[2]);
+        if (ads3_connected) printf("Received data 3: %d\n\n", raw_values[3]);
         vTaskDelay(pdMS_TO_TICKS(100));
-        result = 0;
+        raw_sum = 0;
+        raw_avrage = 0;
     }
 
 }
 
-int get_raw_cell_val(int *CellNum){
-
+int get_raw_cell_val(){
+    int CellNum = 0;
     if (xSemaphoreTake(rawValuesMutex, portMAX_DELAY)) {
-        for (int i = 0; i < 4; i++) {
-            CellNum[i] = results[i];
-        }
+        CellNum = raw_avrage;  //potential race condition
         xSemaphoreGive(rawValuesMutex);
     }
-    return 0;
+    return CellNum;
 }
 
 float get_cell_avrage() {

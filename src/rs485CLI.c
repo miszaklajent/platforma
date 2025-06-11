@@ -129,15 +129,8 @@ ESP_LOGI(TAGRX, "Processing received data...");
         if (sscanf(command, "\ncalib%d = %f\n", &calibPoint, &calibValue) == 2) {
 
 
-            int rawCellValues[4];
-            if (get_raw_cell_val(rawCellValues) != 0) {
-                ESP_LOGE(TAGRX, "Failed to get raw cell values.");
-                return;
-            }
-            for(int i = 0; i < 4; i++) {
-                Set_calib_point(rawCellValues[i], calibValue, calibPoint, i);
-                // vTaskDelay(1 / portTICK_PERIOD_MS);
-            }
+            Set_calib_point(get_raw_cell_val(), calibValue, calibPoint);
+
             
 
             char data[64];

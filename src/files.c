@@ -10,8 +10,6 @@
 
 static const char *TAG = "filesystem";
 
-// struct CalibData calData;
-
 void esptool_path(){
     FILE *f = fopen("/storage/file.json", "r");
     if (f == NULL) {
@@ -75,85 +73,56 @@ CalibData *get_calib_data() {
     json_content[fsize] = '\0';
 
     cJSON *json = cJSON_Parse(json_content);
+    free(json_content);
+
     if (json == NULL) {
         printf("Failed to parse JSON\n");
-        free(json_content);
         return NULL;
     }
 
-    CalibData *calData = malloc(sizeof(CalibData));
+    CalibData *data = malloc(sizeof(CalibData));
 
-    for (int i = 0; i < 4; i++) {
-        char key[10];
-        sprintf(key, "cell%d", i);
-        cJSON *cell = cJSON_GetObjectItem(json, key);
-
-        if (cell) {
-            calData->cellX0[i] = cJSON_GetObjectItem(cell, "x0")->valueint;
-            calData->cellX1[i] = cJSON_GetObjectItem(cell, "x1")->valueint;
-            calData->cellY0[i] = (float)cJSON_GetObjectItem(cell, "y0")->valuedouble;
-            calData->cellY1[i] = (float)cJSON_GetObjectItem(cell, "y1")->valuedouble;
-        }
+    cJSON *cells = cJSON_GetObjectItem(json, "cells");
+    if (cells) {
+        data->cellX0 = cJSON_GetObjectItem(cells, "x0")->valueint;
+        data->cellY0 = (float)cJSON_GetObjectItem(cells, "y0")->valuedouble;
+        data->cellX1 = cJSON_GetObjectItem(cells, "x1")->valueint;
+        data->cellY1 = (float)cJSON_GetObjectItem(cells, "y1")->valuedouble;
     }
 
     cJSON_Delete(json);
-    free(json_content);
-    return calData;
+    return data;
 }
 
-// void Set_calib_point(int x, float y, int pointNum, int cellNum) {
-//     CalibData *calData = get_calib_data();
-//     if (calData == NULL) {
-//         printf("Error: Data structure is NULL\n");
-//         return;
-//     }
-    
-//     if (cellNum < 0 || cellNum >= 4 || pointNum < 0 || pointNum >= 2) {
-//         printf("Error: Invalid cellNum or pointNum\n");
-//         return;
-//     }
-
-//     if (pointNum == 0) {
-//         calData->cellX0[cellNum] = x;
-//         calData->cellY0[cellNum] = y;
-//     } else {
-//         calData->cellX1[cellNum] = x;
-//         calData->cellY1[cellNum] = y;
-//     }
-// }
-
-void Set_calib_point(int x, float y, int pointNum, int cellNum) {
+void Set_calib_point(int x, float y, int pointNum) {
     CalibData *calData = get_calib_data();
     if (calData == NULL) {
-        printf("Error: Data structure is NULL\n");
+        printf("Error: calData structure is NULL\n");
         return;
     }
 
-    if (cellNum < 0 || cellNum >= 4 || pointNum < 0 || pointNum >= 2) {
-        printf("Error: Invalid cellNum or pointNum\n");
+    if (pointNum < 0 || pointNum >= 2) {
+        printf("Error: Invalid pointNum\n");
         return;
     }
 
     if (pointNum == 0) {
-        calData->cellX0[cellNum] = x;
-        calData->cellY0[cellNum] = y;
+        calData->cellX0 = x;
+        calData->cellY0 = y;
     } else {
-        calData->cellX1[cellNum] = x;
-        calData->cellY1[cellNum] = y;
+        calData->cellX1 = x;
+        calData->cellY1 = y;
     }
 
     cJSON *json = cJSON_CreateObject();
-    for (int i = 0; i < 4; i++) {
-        cJSON *cell = cJSON_CreateObject();
-        cJSON_AddNumberToObject(cell, "x0", calData->cellX0[i]);
-        cJSON_AddNumberToObject(cell, "y0", calData->cellY0[i]);
-        cJSON_AddNumberToObject(cell, "x1", calData->cellX1[i]);
-        cJSON_AddNumberToObject(cell, "y1", calData->cellY1[i]);
+    cJSON *cells = cJSON_CreateObject();
 
-        char key[10];
-        sprintf(key, "cell%d", i);
-        cJSON_AddItemToObject(json, key, cell);
-    }
+    cJSON_AddNumberToObject(cells, "x0", calData->cellX0);
+    cJSON_AddNumberToObject(cells, "y0", calData->cellY0);
+    cJSON_AddNumberToObject(cells, "x1", calData->cellX1);
+    cJSON_AddNumberToObject(cells, "y1", calData->cellY1);
+
+    cJSON_AddItemToObject(json, "cells", cells);
 
     char *json_string = cJSON_Print(json);
     FILE *f = fopen("/storage/file.json", "w");
@@ -169,11 +138,7 @@ void Set_calib_point(int x, float y, int pointNum, int cellNum) {
 
     cJSON_Delete(json);
     free(json_string);
-
-    // printf("Calibration calData updated and saved to %s\n", filename);
 }
-
-
 
 void test_struct() {
     CalibData *calData = get_calib_data();
@@ -182,14 +147,11 @@ void test_struct() {
         return;
     }
 
-    for (int i = 0; i < 4; i++) {
-        char buffer[150];
-        snprintf(buffer, sizeof(buffer), "\nCell %d: X0: %d, X1: %d, Y0: %.2f, Y1: %.2f", 
-                 i, calData->cellX0[i], calData->cellX1[i], calData->cellY0[i], calData->cellY1[i]);
-        printf("%s", buffer);
-        CLI_RS485_Send_data(buffer);
-
-    }
+    char buffer[150];
+    snprintf(buffer, sizeof(buffer), "\nCell: X0: %d, X1: %d, Y0: %.2f, Y1: %.2f", 
+                calData->cellX0, calData->cellX1, calData->cellY0, calData->cellY1);
+    printf("%s", buffer);
+    CLI_RS485_Send_data(buffer);
 }
 
 void read_data(){
@@ -236,33 +198,3 @@ void read_data(){
 }
 
 
-
-
-
-
-// void app_main() {
-
-    // char line[64];
-    // while (fgets(line, sizeof(line), f) != NULL) {
-    //     ESP_LOGI(TAG, "Read from file: %s", line);
-    // }
-    // fclose(f);
-
-    // char line[64];
-    // fgets(line, sizeof(line), f);
-    // fclose(f);
-    // printf("\nRead from file: %s\n\n", line);
-
-    // Read the entire file into a buffer
-
-    // size_t size = ftell(f);
-    // printf("read file:\nesptool.py read_flash 0x110205 0x%x %s\n\n", (int)size, "reading.json");
-    // printf("File size: %zu bytes\n", size);
-    // printf("Read %d bytes from file\n", len);
-    // printf("esptool.py read_flash 0x110205 0x%x reading.json\n", len);
-
-
-    // size_t size = ftell(f);
-    // printf("read file:\nesptool.py read_flash 0x110205 0x%x reading.json\n\n", (int)size);
-
-// }
