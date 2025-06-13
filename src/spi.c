@@ -311,10 +311,10 @@ void spi_task(void *pvParameters) {
 
 
     for(;;){
-        printf("Waiting for data ready signal...\n");
+        // printf("Waiting for data ready signal...\n");
         vTaskDelay(pdMS_TO_TICKS(1));
         if (gpio_get_level(PIN_DATA_REDY) == 0) {    
-            printf("Data ready signal received!\n");
+            // printf("Data ready signal received!\n");
 
             raw_values[0] = conv_to_negative(ads_get_cell_val(&ads0));
             raw_values[1] = conv_to_negative(ads_get_cell_val(&ads1));
@@ -332,7 +332,7 @@ void spi_task(void *pvParameters) {
             }
 
         } else {
-            printf("No data ready signal, skipping...\n");
+            // printf("No data ready signal, skipping...\n");
             continue;
         }
 
