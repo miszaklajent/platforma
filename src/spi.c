@@ -19,6 +19,7 @@ CalibData* get_calib_data();
 #define PIN_NUM_CS1    8
 #define PIN_NUM_CS2    14
 #define PIN_NUM_CS3    2
+#define PIN_NUM_CS4    1
 
 #define PIN_DATA_REDY 1
 
@@ -26,6 +27,39 @@ SemaphoreHandle_t AvgWeightMutex;
 SemaphoreHandle_t rawValuesMutex;
 
 CalibData calData;
+
+////////////////////////////////////////////
+
+#define NUM_SAMPLES  10
+
+unsigned long samples[NUM_SAMPLES];
+int sampleIndex = 0;
+bool bufferFilled = false;
+
+void addSample(unsigned long newResult) {
+  samples[sampleIndex] = newResult;
+  sampleIndex = (sampleIndex + 1) % NUM_SAMPLES;
+  
+  if (sampleIndex == 0) {
+    bufferFilled = true;
+  }
+}
+
+unsigned long getAverage() {
+  unsigned long sum = 0;
+  int count = bufferFilled ? NUM_SAMPLES : sampleIndex;
+
+  for (int i = 0; i < count; i++) {
+    sum += samples[i];
+  }
+  
+  if (count == 0) return 0;
+
+  return sum / count;
+}
+
+////////////////////////////////////////////
+
 
 
 static const char *TAG = "SPI_ADS_LINE";
@@ -146,6 +180,39 @@ int ads_cell_setup(spi_device_handle_t *device_spi){
     // ESP_LOGI(TAG, "Setup transaction completed");
 }
 
+int ads_PSsensor_setup(spi_device_handle_t *device_spi){
+    esp_err_t ret;
+
+    uint8_t set_setup_data[5] = {0x43, 0x00, 0x04, 0x10, 0x00};
+    spi_transaction_t set_cell_setup = {
+        .length = sizeof(set_setup_data) * 8,  // Length in bits (5 bytes * 8 bits)
+        .tx_buffer = set_setup_data,
+        .rx_buffer = NULL,
+    };
+    ret = spi_device_transmit(*device_spi, &set_cell_setup);
+    ESP_ERROR_CHECK(ret);
+
+
+    uint8_t ask_setup_data[5] = {0x23, 0x00, 0x00, 0x00, 0x00};
+    uint8_t get_setup_data[5] = {0};
+    spi_transaction_t chq_cell_setup = {
+        .length = sizeof(ask_setup_data) * 8,  // Length in bits (5 bytes * 8 bits)
+        .tx_buffer = ask_setup_data,
+        .rx_buffer = get_setup_data,
+    };
+    ret = spi_device_transmit(*device_spi, &chq_cell_setup);
+    ESP_ERROR_CHECK(ret);
+
+    for(int i=0; i<4; i++){
+        if(get_setup_data[i+1] != set_setup_data[i+1]){
+            // ESP_LOGI(TAG, "ADS is not connected");
+            return 0;
+        }
+    }
+    // ESP_LOGI(TAG, "ADS is connected");
+    return 1;
+}
+
 void ads_reset(spi_device_handle_t *device_spi){
     esp_err_t ret;
 
@@ -195,10 +262,12 @@ float result = 0;
 // int results2 = 0;
 // int results3 = 0;
 int raw_values[4] = {0, 0, 0, 0};
+int Psensor_raw_value = 0;
+float pressure = 0;
 int raw_sum = 0;
 int raw_avrage = 0;
 float calculated_result = 0;
-float avrage_weight = 0;
+// float avrage_weight = 0;
 void spi_task(void *pvParameters) {
     Cell_calibration_dataPoints_sync();
 
@@ -207,16 +276,23 @@ void spi_task(void *pvParameters) {
 
     init_spi(PIN_NUM_MISO, PIN_NUM_MOSI, PIN_NUM_CLK);
 
+    spi_device_handle_t ads4;
+    spi_device_setup(&ads4, PIN_NUM_CS4);
+    int ads4_connected = check_ads(&ads4);
+    ESP_LOGI(TAG, "spi4 connected:%d", ads4_connected);
+    ESP_LOGI(TAG, "spi4 setup done:%d", ads_PSsensor_setup(&ads4));
+
+
     spi_device_handle_t ads0;
     spi_device_handle_t ads1;
     spi_device_handle_t ads2;
     spi_device_handle_t ads3;
-
+    
     spi_device_setup(&ads0, PIN_NUM_CS0);
     spi_device_setup(&ads1, PIN_NUM_CS1);
     spi_device_setup(&ads2, PIN_NUM_CS2);
     spi_device_setup(&ads3, PIN_NUM_CS3);
-
+    
     int ads0_connected = check_ads(&ads0);
     int ads1_connected = check_ads(&ads1);
     int ads2_connected = check_ads(&ads2);
@@ -241,6 +317,7 @@ void spi_task(void *pvParameters) {
             raw_values[1] = conv_to_negative(ads_get_cell_val(&ads1));
             raw_values[2] = conv_to_negative(ads_get_cell_val(&ads2));
             raw_values[3] = conv_to_negative(ads_get_cell_val(&ads3));
+            Psensor_raw_value = conv_to_negative(ads_get_cell_val(&ads4));
 
             for (int i = 0; i < 4; i++) {
                 if (i == 0 && !ads0_connected) continue;
@@ -266,9 +343,12 @@ void spi_task(void *pvParameters) {
         calculated_result = Linear_transformed_cell(calData.cellX0, calData.cellX1, calData.cellY0, calData.cellY1, raw_avrage);
 
         if (xSemaphoreTake(AvgWeightMutex, portMAX_DELAY)) {
-            avrage_weight = calculated_result;
+            // avrage_weight = calculated_result;
+            addSample(calculated_result);
             xSemaphoreGive(AvgWeightMutex);
         }
+
+        pressure = ((float)(Psensor_raw_value-1637162))/110000;
 
         printf("calculated_result: %.2f\n", calculated_result);
 
@@ -294,7 +374,8 @@ int get_raw_cell_val(){
 
 float get_cell_avrage() {
     if (xSemaphoreTake(AvgWeightMutex, portMAX_DELAY)) {
-        float avg_weight = avrage_weight;
+        // float avg_weight = avrage_weight;
+        float avg_weight = getAverage();
         xSemaphoreGive(AvgWeightMutex);
         return avg_weight;
     }

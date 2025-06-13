@@ -16,37 +16,6 @@
 TaskHandle_t spi_task_handle = NULL;
 
 
-////////////////////////////////////////////
-
-#define NUM_SAMPLES  10
-
-unsigned long samples[NUM_SAMPLES];
-int sampleIndex = 0;
-bool bufferFilled = false;
-
-void addSample(unsigned long newResult) {
-  samples[sampleIndex] = newResult;
-  sampleIndex = (sampleIndex + 1) % NUM_SAMPLES;
-  
-  if (sampleIndex == 0) {
-    bufferFilled = true;
-  }
-}
-
-unsigned long getAverage() {
-  unsigned long sum = 0;
-  int count = bufferFilled ? NUM_SAMPLES : sampleIndex;
-
-  for (int i = 0; i < count; i++) {
-    sum += samples[i];
-  }
-  
-  if (count == 0) return 0;
-
-  return sum / count;
-}
-
-////////////////////////////////////////////
 
 void pixel_set(tNeopixelContext *neopixel, int pixel_num, int r, int g, int b){
     tNeopixel pixel[] ={{ pixel_num, NP_RGB(r, g, b) }};
