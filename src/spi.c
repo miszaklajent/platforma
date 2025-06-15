@@ -4,7 +4,7 @@
 #include <driver/gpio.h>
 #include <freertos/semphr.h>
 #include "files.h"
-
+#include "rs485DATA.h"
 // Declare the get_calib_data function if not already declared
 CalibData* get_calib_data();
 
@@ -342,7 +342,7 @@ void spi_task(void *pvParameters) {
         }else {
             raw_avrage = 0;
         }
-        printf("raw_avrage: %d\n", raw_avrage);
+       // printf("raw_avrage: %d\n", raw_avrage);
 
         calculated_result = Linear_transformed_cell(calData.cellX0, calData.cellX1, calData.cellY0, calData.cellY1, raw_avrage);
 
@@ -354,13 +354,15 @@ void spi_task(void *pvParameters) {
 
         pressure = ((float)(Psensor_raw_value-1637162))/110000;
 
-        printf("calculated_result: %.2f\n", calculated_result);
+        callback(pressure, calculated_result);
 
-        if (ads0_connected) printf("Received data 0: %d\n", raw_values[0]);
-        if (ads1_connected) printf("Received data 1: %d\n", raw_values[1]);
-        if (ads2_connected) printf("Received data 2: %d\n", raw_values[2]);
-        if (ads3_connected) printf("Received data 3: %d\n\n", raw_values[3]);
-        vTaskDelay(pdMS_TO_TICKS(100));
+        // printf("calculated_result: %.2f\n", calculated_result);
+
+        // if (ads0_connected) printf("Received data 0: %d\n", raw_values[0]);
+        // if (ads1_connected) printf("Received data 1: %d\n", raw_values[1]);
+        // if (ads2_connected) printf("Received data 2: %d\n", raw_values[2]);
+        // if (ads3_connected) printf("Received data 3: %d\n\n", raw_values[3]);
+        // vTaskDelay(pdMS_TO_TICKS(100));
         raw_sum = 0;
         raw_avrage = 0;
     }

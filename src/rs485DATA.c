@@ -60,7 +60,7 @@ void DATA_RS485_Init(void){
     gpio_set_direction(CONV_PIN,GPIO_MODE_OUTPUT);
 
     
-    start_microsecond_timer();
+    // start_microsecond_timer();
     // xTaskCreate(DATA_rs485_tx_data, "DATA_rs485_tx_data", 2048 * 4, NULL, 5, NULL);
 }
 
@@ -75,11 +75,20 @@ void DATA_RS485_Send_data(const char* data) {
 
 
 void periodic_callback(void* arg) {
+    // char tx_buffer[128];
+    // snprintf((char*)tx_buffer, sizeof(tx_buffer), "lc,%d,%.4f\n", (int)esp_timer_get_time(), 75.5);
+    // DATA_RS485_Send_data((const char*)tx_buffer);
+
+    // snprintf((char*)tx_buffer, sizeof(tx_buffer), "ps,%d,%.4f\n", (int)esp_timer_get_time(), 1.2);
+    // DATA_RS485_Send_data((const char*)tx_buffer);
+}
+
+void callback(const float pressure, const float weight) {
     char tx_buffer[128];
-    snprintf((char*)tx_buffer, sizeof(tx_buffer), "lc,%d,%.4f\n", (int)esp_timer_get_time(), 75.5);
+    snprintf((char*)tx_buffer, sizeof(tx_buffer), "lc,%d,%.4f\n", (int)esp_timer_get_time(), weight);
     DATA_RS485_Send_data((const char*)tx_buffer);
 
-    snprintf((char*)tx_buffer, sizeof(tx_buffer), "ps,%d,%.4f\n", (int)esp_timer_get_time(), 1.2);
+    snprintf((char*)tx_buffer, sizeof(tx_buffer), "ps,%d,%.4f\n", (int)esp_timer_get_time(), pressure);
     DATA_RS485_Send_data((const char*)tx_buffer);
 }
 

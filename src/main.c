@@ -31,6 +31,8 @@ void app_main(void){
   // Set_calib_point(25, 50.5, 1, 2);
   // test_struct(); 
 
+  CLI_RS485_Init();
+  DATA_RS485_Init();
 
 
   xTaskCreatePinnedToCore(
@@ -43,8 +45,7 @@ void app_main(void){
     0                     // Core ID
   );
 
-  CLI_RS485_Init();
-  DATA_RS485_Init();
+
 
 
   // char data[16];
